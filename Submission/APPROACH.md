@@ -3,13 +3,13 @@ Token Bucket Rate Limiter - Approach (hand-written)
 Candidate: Shubhranshu Acharya  
 Language: Python
 
-PROBLEM UNDERSTANDING
+PROBLEM UNDERSTANDING:
 
 Build a token bucket rate limiter. Each customer gets 100 tokens, uses 1 per request, tokens refill at 10 per second. When out of tokens reject and return wait time in milliseconds.
 
 The confusing part was how refill works. Problem description mentioned a background timer every second but the example showed on-demand calculation. I chose on-demand - simpler, no threading, more scalable.
 
-ASSUMPTIONS
+ASSUMPTIONS:
 
 1. Refill happens on-demand per request not from a background timer.
 2. Bucket starts with full capacity not empty.
