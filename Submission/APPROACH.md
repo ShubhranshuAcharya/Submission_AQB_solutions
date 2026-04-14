@@ -7,7 +7,7 @@ Problem Understanding:
 
 The task was to build a token bucket rate limiter. Each customer gets 100 tokens, each request consumes 1 token, and tokens refill at 10 per second. If no tokens are available, the request should be rejected and the wait time should be returned in milliseconds.
 
-One confusing part was how the refill works. The description mentioned a background timer, but the example clearly followed an on-demand calculation. I decided to go with the on-demand approach since it’s simpler and avoids threading.
+One confusing part was how the refill works. The description mentioned a background timer, but the example clearly followed an on-demand calculation. I decided to go with the on-demand approach since it's simpler and avoids threading.
 
 
 Assumptions:
@@ -21,7 +21,7 @@ Assumptions:
 
 Errors in Problem Statement:
 
-I didn’t find any major issues. The requirements were mostly clear.  
+I didn't find any major issues. The requirements were mostly clear.  
 Only confusion was around background timer vs on-demand refill, but the example made it clear that on-demand was expected.
 
 
