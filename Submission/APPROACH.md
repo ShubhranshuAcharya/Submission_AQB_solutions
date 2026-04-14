@@ -1,61 +1,101 @@
-Token Bucket Rate Limiter - Approach (hand-written)
+Token Bucket Rate Limiter - Approach
 
-Candidate: Shubhranshu Acharya  
+Candidate: Shubhranshu Acharya    
 Language: Python
 
-1. Problem Understanding:
+Problem Understanding:
 
-My goal was to build a token bucket rate limiter. Each customer gets 100 tokens, uses 1 token per request, and tokens refill at 10 per second. When out of tokens, I needed to make sure it rejects the request and returns the required wait time in milliseconds.
-While reading the requirements, I noticed a slightly confusing part about how the refill works. The description mentioned a background timer every second, but the example showed an on-demand calculation. I chose to implement the on-demand approach because it is simpler, requires no threading, and is far more scalable.
+The task was to build a token bucket rate limiter. Each customer gets 100 tokens, each request consumes 1 token, and tokens refill at 10 per second. If no tokens are available, the request should be rejected and the wait time should be returned in milliseconds.
 
-2. Assumptions:
+One confusing part was how the refill works. The description mentioned a background timer, but the example clearly followed an on-demand calculation. I decided to go with the on-demand approach since it’s simpler and avoids threading.
 
-To build this cleanly, I made the following assumptions:
-1. Refill happens continuously on-demand per request, not from a background timer.
-2. The bucket starts with full capacity, not empty.
-3. Tokens never exceed capacity even after long idle periods.
-4. Each customer operates in complete isolation with no shared quota.
-5. Wait time must be converted and returned in milliseconds, not seconds.
 
-3. Errors Found in Problem Statement:
+Assumptions:
 
-I reviewed the problem statement and found no critical errors. The description was mostly clear about requirements and the example scenario was accurate. The only minor confusion I spotted was the background timer versus on-demand logic, but the example output made it clear which approach was intended.
+- Refill is calculated on-demand during each request, not using a background timer  
+- Bucket starts full (100 tokens)  
+- Tokens never go beyond capacity, even after long idle time  
+- Each customer has an independent bucket  
+- Wait time is returned in milliseconds  
 
-4. Bugs Found in Starter Code:
+
+Errors in Problem Statement:
+
+I didn’t find any major issues. The requirements were mostly clear.  
+Only confusion was around background timer vs on-demand refill, but the example made it clear that on-demand was expected.
+
+
+Bugs in Starter Code:
 
 Bug 1:
-- I found that on line 36, the starter code was initializing a brand new bucket to 0 tokens.
-- Because of this, the very first valid request was always getting improperly rejected.
-- To fix it, I changed the logic to initialize the bucket fully at maximum capacity by writing self.buckets[customer_id] = self.capacity.
+
+The bucket was initialized with 0 tokens. Because of this, even the first request was getting rejected.
+
+Fix: Initialize bucket with full capacity  
+self.buckets[customer_id] = self.capacity
 
 Bug 2:
-- I noticed on line 45 that there was absolutely no capacity cap applied after the continuous refill math occurred. 
-- Left like that, a long idle period would generate something like 200 tokens for a 20-second wait, breaking the limit entirely.
-- I fixed this by forcing a cap so the current tokens never mathematically exceed self.capacity. I did this using the min function.
+
+There was no cap after refill. So after a long idle time, tokens could go above 100 (e.g., 200 tokens after 20 seconds), which breaks the rate limit.
+
+Fix: Cap tokens using min() so they never exceed capacity
 
 Bug 3:
-- I discovered on line 66 that the retry_after_ms variable was calculating the return value in standard seconds instead of milliseconds.
-- A 0.1-second wait was just returning 0 due to the integer cast, meaning a client would retry immediately and fail.
-- I fixed this by multiplying the mathematical remainder by 1000 so that it correctly scales into pure milliseconds before returning.
 
-5. My Solution Design:
+Retry time was being returned in seconds instead of milliseconds.  
+Because of integer conversion, small waits like 0.1 seconds became 0.
 
-I designed a solution using exactly two dictionaries per customer: one to track their token count (as a floating point) and another to track their last refill timestamp. On each request, I calculate the elapsed time, mathematically add the proper refill tokens, cap it at capacity, and then either consume 1 token if allowed or calculate the remaining wait time if denied.
-I deliberately chose to use float tokens to preserve precision, so a 50ms wait at 10 tokens per second earns 0.5 tokens instead of 0. This guarantees fairness.
-I chose on-demand over a background timer because it completely eliminates threads, complex timing issues, and makes the system much easier for me to test.
-My final code is 55 clean lines, uses two dicts, one dataclass, strict type hints, and has zero external dependencies.
+Fix: Multiply by 1000 to convert to milliseconds before returning
 
-6. Walkthrough of Example Scenario: 
+Solution Design:
 
-I manually verified that my code handles the scenario flawlessly:
+I used two dictionaries:
+- One to store current tokens (float)
+- One to store last refill timestamp
 
-T=0ms: First request from customer. Bucket has 100 tokens. Request allowed. 99 remaining.
-T=0ms: 59 more requests. All allowed consuming 59 tokens. 40 remaining.
-T=2000ms: 2 seconds elapsed. Refill 40 + (2 x 10) = 60 tokens. Request allowed. 59 remaining.
-T=2000ms: 69 more requests arrive. 59 allowed, 10 denied (bucket exhausted).
-T=7000ms: 5 seconds elapsed. Refill 0 + (5 x 10) = 50 tokens. Request allowed.
-T=7000ms: 29 more requests all allowed consuming tokens. 20 remaining.
-T=17000ms: 10 seconds elapsed. Refill 20 + (10 x 10) = 120 but I cap it at 100. Request allowed.
-T=17000ms: 79 more requests all allowed. 20 remaining.
+On each request:
+- Calculate time passed since last request  
+- Add tokens based on time  
+- Cap tokens at capacity  
+- If tokens >= 1 → allow and deduct 1  
+- Else → reject and calculate wait time  
 
-Every calculation I tested matches the spec exactly.
+I used float tokens so that small time intervals are handled correctly.  
+For example, 50ms at 10 tokens/sec gives 0.5 tokens instead of 0.
+
+I preferred on-demand refill because:
+- No threads needed  
+- Simpler logic  
+- Works naturally for long idle times  
+- Easier to test  
+
+The implementation is around 55 lines, uses simple data structures, and no external dependencies.
+
+
+Walkthrough of Example:
+
+T = 0ms  
+First request → allowed → 99 tokens left  
+
+Next 59 requests → all allowed → 40 tokens left  
+
+T = 2000ms  
+2 seconds passed → refill = 40 + 20 = 60  
+Request allowed → 59 tokens left  
+
+Next 69 requests  
+59 allowed → 10 rejected  
+
+T = 7000ms  
+5 seconds passed → refill = 50  
+Request allowed  
+
+Next 29 requests → all allowed → 20 tokens left  
+
+T = 17000ms  
+10 seconds passed → refill = 20 + 100 = 120 → capped at 100  
+Request allowed  
+
+Next 79 requests → all allowed → 20 tokens left  
+
+All calculations match expected behavior.
