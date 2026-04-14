@@ -1,51 +1,58 @@
 Implementation Notes - Token Bucket Rate Limiter
 
-ARCHITECTURE
+ARCHITECTURE:
 
-On-demand continuous refill instead of background timer. When check() is called, elapsed time is calculated and tokens are added based on that elapsed time. This avoids threading complexity and naturally handles long idle periods.
+I used an on-demand refill approach instead of a background timer.  
+Each time check() is called, elapsed time is calculated and tokens are added based on that.
 
-DATA STRUCTURES
+This keeps the design simple, avoids threading, and works well even after long idle periods.
 
-Two dictionaries per customer:
-- buckets: Maps customer_id (str) to current token count (float)
-- last_refill: Maps customer_id (str) to last refill timestamp (int milliseconds)
+DATA STRUCTURES:
 
-Float tokens preserve precision in fractional accumulation. Integer conversion only happens when returning remaining count to caller.
+Two dictionaries are used:
 
-KEY DESIGN DECISIONS
+- buckets > stores current token count (float) for each customer  
+- last_refill > stores last refill timestamp (in milliseconds)  
 
-1. Float tokens internally: Preserves fairness for small time intervals. 50ms at 10 tokens/sec earns 0.5 tokens, not 0.
+Tokens are stored as float to preserve precision. Conversion to integer only happens when returning values.
 
-2. On-demand refill: Calculate elapsed time per request, no background tasks. Scales better and more testable.
+KEY DESIGN DECISIONS:
 
-3. Capacity capping: Applied after refill to prevent overflow during long idle periods.
+1. Float tokens :
+Using float ensures small time intervals are handled correctly.  
+Example: 50ms at 10 tokens/sec gives 0.5 tokens instead of 0.
 
-4. Per-customer isolation: Each customer in separate dict entries with zero cross-contamination.
+2. On-demand refill :
+Refill is calculated during each request instead of running a background process.  
+This keeps the system simple and scalable.
 
-TESTING STRATEGY
+3. Capacity cap :  
+After refill, tokens are always capped at maximum capacity to prevent overflow.
 
-10 test cases across 8 test classes organized by concern:
+4. Per-customer isolation :  
+Each customer is handled independently with no shared state.
 
-Scenario tests (test_scenario.py):
-- Initialization: First request gets full capacity
-- Basic rate limiting: Allow/deny enforcement
-- Refill mechanism: Token accumulation over time
-- Multiple customers: Independent quotas
-- Full spec scenario: End-to-end validation
+TESTING:
 
-Edge case tests (test_edge_cases.py):
-- Capacity cap: Long idle doesn't overflow
-- Retry timing: Millisecond conversion accuracy
-- Fractional tokens: Precision with small intervals
-- Empty bucket: Proper rejection handling
+I tested both normal scenarios and edge cases:
 
-POTENTIAL EXTENSIONS
+- First request should succeed with full capacity  
+- Correct allow/deny behavior under load  
+- Tokens refill correctly over time  
+- Multiple customers work independently  
+- Tokens never exceed capacity  
+- Retry time is returned correctly in milliseconds  
+- Small time intervals (fractional tokens) behave correctly  
+- Empty bucket rejects requests properly  
 
-1. Thread safety: Add locks for concurrent access
-2. Distributed: Use Redis/Memcached for multiple servers
-3. Monitoring: Track rejection rate, average tokens used
-4. User tiers: Different rate limits for different user types
-5. Cleanup: Remove inactive customers after timeout to save memory
-6. Metrics: Per-customer usage statistics and rate patterns
+TRADE-OFFS:
 
+- On-demand refill is simple, but tokens are only updated when a request comes in  
+- In-memory storage is fast but not suitable for distributed systems without external storage  
 
+POTENTIAL EXTENSIONS:
+
+- Add thread safety for concurrent access  
+- Use Redis for distributed rate limiting  
+- Support different rate limits for different users  
+- Add basic monitoring (usage and rejection rates)
