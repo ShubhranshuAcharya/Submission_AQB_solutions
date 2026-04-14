@@ -1,6 +1,6 @@
 Token Bucket Rate Limiter - Approach (hand-written)
 
-Candidate: Shubhranshu Acharya
+Candidate: Shubhranshu Acharya  
 Language: Python
 
 1. Problem Understanding:
