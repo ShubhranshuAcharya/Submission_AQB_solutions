@@ -1,4 +1,4 @@
-Token Bucket Rate Limiter - Approach
+Token Bucket Rate Limiter - Approach (hand-written)
 
 Candidate: Shubhranshu Acharya    
 Language: Python
@@ -75,27 +75,27 @@ The implementation is around 55 lines, uses simple data structures, and no exter
 Walkthrough of Example:
 
 T = 0ms  
-First request → allowed → 99 tokens left  
+First request > allowed > 99 tokens left  
 
-Next 59 requests → all allowed → 40 tokens left  
+Next 59 requests > all allowed > 40 tokens left  
 
 T = 2000ms  
-2 seconds passed → refill = 40 + 20 = 60  
-Request allowed → 59 tokens left  
+2 seconds passed > refill = 40 + 20 = 60  
+Request allowed > 59 tokens left  
 
 Next 69 requests  
-59 allowed → 10 rejected  
+59 allowed > 10 rejected  
 
 T = 7000ms  
-5 seconds passed → refill = 50  
+5 seconds passed > refill = 50  
 Request allowed  
 
-Next 29 requests → all allowed → 20 tokens left  
+Next 29 requests > all allowed > 20 tokens left  
 
 T = 17000ms  
-10 seconds passed → refill = 20 + 100 = 120 → capped at 100  
+10 seconds passed > refill = 20 + 100 = 120 > capped at 100  
 Request allowed  
 
-Next 79 requests → all allowed → 20 tokens left  
+Next 79 requests > all allowed > 20 tokens left  
 
 All calculations match expected behavior.
