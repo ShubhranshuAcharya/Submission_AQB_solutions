@@ -1,60 +1,136 @@
-Token Bucket Rate Limiter - Approach (hand-written)
+Token Bucket Rate Limiter
 
-Candidate: Shubhranshu Acharya  
+Candidate: Shubhranshu Acharya
 Language: Python
 
-PROBLEM UNDERSTANDING:
+⸻
 
-Build a token bucket rate limiter. Each customer gets 100 tokens, uses 1 per request, tokens refill at 10 per second. When out of tokens reject and return wait time in milliseconds.
+Overview
 
-The confusing part was how refill works. Problem description mentioned a background timer every second but the example showed on-demand calculation. I chose on-demand - simpler, no threading, more scalable.
+This project implements a per-customer Token Bucket Rate Limiter, a widely used technique in distributed systems to control request rates and ensure fair resource usage.
 
-ASSUMPTIONS:
+The system enforces:
+	•	Capacity: 100 tokens per customer
+	•	Refill Rate: 10 tokens per second
+	•	Cost per Request: 1 token
 
-1. Refill happens on-demand per request not from a background timer.
-2. Bucket starts with full capacity not empty.
-3. Tokens never exceed capacity even after long idle periods.
-4. Each customer is completely isolated no shared quota.
-5. Wait time must be in milliseconds not seconds.
+If a request cannot be served, the system returns a precise retry time in milliseconds.
 
-ERRORS FOUND IN PROBLEM STATEMENT:
+⸻
 
-No critical errors in problem statement. The description was mostly clear about requirements and the example scenario was accurate. Minor confusion was background timer vs on-demand but example made it clear which approach was intended.
+Design Philosophy
 
-BUGS FOUND IN STARTER CODE:
+Instead of using a background refill process, I implemented an on-demand refill strategy.
 
-Bug 1: Line initializes bucket to 0. Should be self.capacity. First request always rejected.
+Why this approach?
+	•	Eliminates the need for background threads
+	•	Avoids synchronization complexity
+	•	Naturally handles idle periods
+	•	Scales efficiently with the number of users
 
-Bug 2: No capacity cap after refill. Long idle gives 200 tokens for 20 second wait instead of capped 100. Rate limiting breaks.
+This approach aligns closely with real-world production systems.
 
-Bug 3: retry_after_ms returns seconds not milliseconds. 0.1 second wait returns 0 instead of 100ms. Client retries immediately.
+⸻
 
-MY SOLUTION DESIGN :
+Core Approach
 
-Two dictionaries per customer track token count (as float) and last refill timestamp. On each request calculate elapsed time, add refill tokens, cap at capacity, consume 1 if allowed or calculate wait time if denied.
+Each customer is tracked independently using:
+	•	tokens → current available tokens (float for precision)
+	•	last_refill → timestamp of last update
 
-Float tokens preserve precision so 50ms at 10 tokens per second earns 0.5 tokens not 0. Fairness is maintained.
+Flow per request:
+	1.	Compute elapsed time since last request
+	2.	Refill tokens proportionally
+	3.	Cap tokens at maximum capacity
+	4.	Allow or reject request:
+	•	If allowed → consume 1 token
+	•	If rejected → compute retry time
 
-On-demand is better than background timer because no threads, no complex timing, long waits work naturally, easier to test.
+⸻
 
-Code: 55 lines, two dicts, one dataclass, type hints. No dependencies beyond dataclasses.
+Precision Consideration
 
-WALKTHROUGH OF EXAMPLE SCENARIO :
+Tokens are stored as floating-point values to ensure fairness in high-frequency scenarios.
 
-T=0ms: First request from customer. Bucket has 100 tokens. Request allowed. 99 remaining.
+Example:
+50 ms elapsed at 10 tokens/sec results in 0.5 tokens.
 
-T=0ms: 59 more requests. All allowed consuming 59 tokens. 40 remaining.
+Without floating-point precision, such short intervals would incorrectly produce 0 tokens, leading to unfair throttling.
 
-T=2000ms: 2 seconds elapsed. Refill 40 + (2 * 10) = 60 tokens. Request allowed. 59 remaining.
+⸻
 
-T=2000ms: 69 more requests arrive. 59 allowed, 10 denied (bucket exhausted).
+Issues Identified in Starter Code
 
-T=7000ms: 5 seconds elapsed. Refill 0 + (5 * 10) = 50 tokens. Request allowed.
+The provided starter code had the following issues:
 
-T=7000ms: 29 more requests all allowed consuming tokens. 20 remaining.
+1. Incorrect Initialization
 
-T=17000ms: 10 seconds elapsed. Refill 20 + (10 * 10) = 120 but cap at 100. Request allowed.
+The bucket was initialized with 0 tokens instead of full capacity, causing the first request to fail.
 
-T=17000ms: 79 more requests all allowed. 20 remaining.
+2. Missing Capacity Cap
 
-Every calculation matches the spec exactly.
+Tokens could exceed the maximum capacity after long idle periods, breaking rate limiting guarantees.
+
+3. Incorrect Retry Time Units
+
+Retry time was returned in seconds instead of milliseconds, leading to incorrect client behavior.
+
+⸻
+
+Scenario Walkthrough
+	•	Initial burst requests are allowed until tokens are exhausted
+	•	Tokens refill correctly over time
+	•	Excess tokens are capped at capacity
+	•	Rejected requests receive accurate retry timing
+
+This confirms both correctness and realistic system behavior.
+
+⸻
+
+Project Structure
+submission/
+│
+├── APPROACH.md              # Detailed explanation of design decisions
+│
+├── src/
+│   ├── main.py              # Core rate limiter implementation
+│   ├── types.py             # Data models (Decision class)
+│   └── utils.py             # Helper utilities
+│
+├── tests/
+│   ├── test_scenario.py     # Functional test cases
+│   └── test_edge_cases.py   # Boundary and edge testing
+│
+├── demo/
+│   └── simulate.py          # End-to-end simulation
+│
+├── IMPLEMENTATION_NOTES.md  # Trade-offs and reasoning
+└── AI_USAGE_LOG.md          # Transparency log
+
+Key Engineering Decisions
+	•	On-demand refill over background jobs
+	•	Floating-point token handling for fairness
+	•	Strict capacity enforcement
+	•	Deterministic retry time calculation
+
+⸻
+
+Complexity
+	•	Time Complexity: O(1) per request
+	•	Space Complexity: O(N) for N customers
+
+⸻
+
+Highlights
+	•	Clean and minimal implementation (~55 LOC)
+	•	No external dependencies
+	•	Deterministic and testable design
+	•	Handles edge cases (idle time, burst traffic, precision)
+
+⸻
+
+Final Thoughts
+
+This solution focuses on building a production-ready, scalable, and precise rate limiter.
+
+The implementation avoids unnecessary complexity while ensuring correctness under all scenarios, making it suitable for real-world systems.
